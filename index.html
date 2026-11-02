@@ -1,0 +1,488 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Keg Bet Standings</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600&display=swap">
+<style>
+/* Layout: scoreboard header, "on the hook" banner, Billy-style W/L grid, this week's games, rules. */
+:root {
+  --bg: #eef1ec;
+  --surface: #ffffff;
+  --ink: #15201a;
+  --muted: #5b6a61;
+  --line: #d5dcd4;
+  --accent: #b8740a;
+  --accent-soft: #f6e6c6;
+  --bye: #dce8f6;
+  --tie: #e2efd2;
+  --safe: #2c8a4b;
+  --safe-soft: #d6eedc;
+  --loser: #c2372c;
+  --loser-soft: #f8dcd8;
+  --font-display: "Barlow Condensed", "Arial Narrow", "Helvetica Neue", sans-serif;
+  --font-body: "Barlow", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1512; --surface: #18211c; --ink: #e7ede8; --muted: #93a399; --line: #2b3830;
+    --accent: #e5a636; --accent-soft: #3a2d14; --bye: #1d3047; --tie: #263a1e;
+    --safe: #55c27a; --safe-soft: #193324; --loser: #ef6256; --loser-soft: #401c19;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1512; --surface: #18211c; --ink: #e7ede8; --muted: #93a399; --line: #2b3830;
+  --accent: #e5a636; --accent-soft: #3a2d14; --bye: #1d3047; --tie: #263a1e;
+  --safe: #55c27a; --safe-soft: #193324; --loser: #ef6256; --loser-soft: #401c19;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.5 var(--font-body);
+}
+.wrap {
+  max-width: 1180px; margin: 0 auto;
+  padding-block: 28px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; grid-template-columns: minmax(0, 1fr); gap: 22px;
+}
+header { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px 24px; }
+.eyebrow { font: 700 13px/1 var(--font-display); letter-spacing: .14em; text-transform: uppercase; color: var(--accent); }
+h1 { margin: 6px 0 0; font: 800 clamp(40px, 7vw, 64px)/.92 var(--font-display); letter-spacing: -.01em; text-transform: uppercase; text-wrap: balance; }
+.sub { margin: 8px 0 0; color: var(--muted); }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.stamp { color: var(--muted); font-size: 13px; width: 100%; text-align: right; }
+button {
+  font: 700 15px/1 var(--font-display); letter-spacing: .06em; text-transform: uppercase;
+  padding: 11px 16px; border-radius: 6px; border: 1px solid var(--line);
+  background: var(--surface); color: var(--ink); cursor: pointer;
+}
+button.primary { background: var(--accent); border-color: var(--accent); color: #1b1204; }
+button:hover { filter: brightness(1.05); }
+button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+.banner {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1px;
+  background: var(--line); border: 1px solid var(--line); border-radius: 10px; overflow: hidden;
+}
+.banner > div { background: var(--surface); padding: 16px 18px; min-width: 0; }
+.banner .label { font: 700 12px/1 var(--font-display); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.banner .big { font: 800 30px/1.1 var(--font-display); margin-top: 6px; text-transform: uppercase; }
+.banner .note { color: var(--muted); font-size: 14px; margin-top: 2px; }
+.banner .hook { background: var(--loser-soft); }
+.banner .hook .big { color: var(--loser); }
+
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+.panel h2 { margin: 0; padding: 14px 18px 0; font: 800 22px/1.1 var(--font-display); text-transform: uppercase; letter-spacing: .02em; }
+.scroller { overflow-x: auto; padding: 12px 0 4px; }
+table { border-collapse: separate; border-spacing: 0; font-variant-numeric: tabular-nums; width: 100%; }
+th, td { text-align: center; padding: 0; border-bottom: 1px solid var(--line); white-space: nowrap; }
+thead th { font: 700 12px/1 var(--font-display); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); padding: 6px 0; }
+thead tr:first-child th.wk { border-left: 1px solid var(--line); }
+td.w, td.l { width: 26px; min-width: 26px; height: 54px; font: 600 16px/1 var(--font-display); }
+td.w { border-left: 1px solid var(--line); }
+td.l { color: var(--muted); }
+td.bye { background: var(--bye); }
+td.tie { background: var(--tie); }
+td.pending { font-style: italic; opacity: .7; }
+.owner, th.owner {
+  position: sticky; left: 0; z-index: 1; background: var(--surface);
+  text-align: left; padding: 6px 14px 6px 18px; min-width: 150px; border-right: 1px solid var(--line);
+}
+.owner .rk { font: 700 13px/1 var(--font-display); color: var(--muted); width: 18px; display: inline-block; }
+.owner .nm { font: 800 20px/1 var(--font-display); text-transform: uppercase; }
+.owner .mv { font-size: 11px; font-weight: 600; margin-left: 4px; }
+.mv.up { color: var(--safe); } .mv.down { color: var(--loser); }
+.teams { display: flex; gap: 6px; align-items: center; margin-top: 5px; padding-left: 18px; }
+.teams span { display: inline-flex; align-items: center; gap: 3px; font: 600 12px/1 var(--font-body); color: var(--muted); }
+.teams img { width: 18px; height: 18px; object-fit: contain; }
+td.rec { font: 800 22px/1 var(--font-display); padding: 0 12px; border-left: 2px solid var(--ink); }
+td.rec small { font-size: 15px; color: var(--muted); font-weight: 600; }
+td.mg, td.lw { padding: 0 10px; min-width: 104px; }
+td.lw { color: var(--muted); }
+.pill {
+  display: inline-block; font: 700 15px/1 var(--font-display); letter-spacing: .04em; text-transform: uppercase;
+  padding: 6px 9px; border-radius: 999px; background: var(--accent-soft); color: var(--ink);
+}
+.pill.keg { background: var(--loser); color: #fff; }
+.pill.safe { background: var(--safe-soft); color: var(--safe); }
+td.lw .pill { background: transparent; color: var(--muted); border: 1px solid var(--line); }
+tr.hook td.owner .nm { color: var(--loser); }
+
+.legend { display: flex; flex-wrap: wrap; gap: 8px 18px; padding: 12px 18px 16px; font-size: 13px; color: var(--muted); }
+.legend i { display: inline-block; width: 14px; height: 14px; border-radius: 3px; vertical-align: -2px; margin-right: 6px; border: 1px solid var(--line); }
+
+.games { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; padding: 14px 18px 18px; }
+.game { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; display: grid; gap: 6px; min-width: 0; }
+.game .when { font: 700 12px/1 var(--font-display); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.game .when.live { color: var(--loser); }
+.side { display: flex; align-items: center; gap: 8px; }
+.side img { width: 22px; height: 22px; object-fit: contain; }
+.side .ab { font: 700 17px/1 var(--font-display); width: 40px; }
+.side .who { color: var(--muted); font-size: 13px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.side .sc { font: 700 18px/1 var(--font-display); font-variant-numeric: tabular-nums; }
+.side.won .ab, .side.won .sc { color: var(--safe); }
+.side.lost { opacity: .6; }
+.empty { padding: 14px 18px 18px; color: var(--muted); }
+
+.rules { padding: 14px 18px 18px; color: var(--muted); max-width: 70ch; display: grid; gap: 6px; }
+.rules p { margin: 0; }
+.msg { padding: 14px 18px; border-radius: 8px; background: var(--accent-soft); }
+.msg.err { background: var(--loser-soft); color: var(--loser); }
+.toast { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 8px; font-weight: 600; }
+textarea { width: 100%; min-height: 220px; font: 14px/1.4 ui-monospace, Consolas, monospace; background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 10px; }
+.cards { display: none; list-style: none; margin: 0; padding: 10px 0 0; }
+.card {
+  display: grid; grid-template-columns: 20px minmax(0, 1fr) auto; gap: 4px 10px; align-items: center;
+  padding: 10px 16px; border-bottom: 1px solid var(--line);
+}
+.card.hook { background: var(--loser-soft); }
+.card .rk { font: 700 14px/1 var(--font-display); color: var(--muted); }
+.card .nm { font: 800 21px/1 var(--font-display); text-transform: uppercase; }
+.card.hook .nm { color: var(--loser); }
+.card .tm { font: 600 12px/1 var(--font-body); color: var(--muted); margin-left: 6px; letter-spacing: .02em; }
+.card .rec { font: 800 22px/1 var(--font-display); font-variant-numeric: tabular-nums; text-align: right; }
+.card .rec small { font-size: 15px; color: var(--muted); font-weight: 600; }
+.card .meta { grid-column: 2; font-size: 13px; color: var(--muted); }
+.card .st { grid-column: 3; text-align: right; }
+.card .pill { font-size: 13px; padding: 4px 8px; }
+.gridLabel { display: none; }
+@media (max-width: 560px) { .stamp { text-align: left; } .controls { width: 100%; } .controls button { flex: 1; } }
+@media (max-width: 640px) {
+  .wrap { gap: 16px; padding-block: 18px 36px; }
+  .cards { display: block; }
+  .gridLabel { display: block; padding: 18px 16px 0; font: 800 18px/1.1 var(--font-display); text-transform: uppercase; }
+  .panel h2 { padding: 14px 16px 0; font-size: 20px; }
+  .banner > div { padding: 12px 16px; }
+  .banner .big { font-size: 24px; }
+  .owner, th.owner { min-width: 0; padding: 4px 8px 4px 12px; }
+  .owner .nm { font-size: 16px; }
+  .owner .rk, .owner .mv, table .teams { display: none; }
+  td.w, td.l { width: 22px; min-width: 22px; height: 38px; font-size: 15px; }
+  td.rec { font-size: 18px; padding: 0 8px; }
+  td.rec small { font-size: 13px; }
+  td.mg, td.lw { min-width: 0; padding: 0 6px; }
+  td .pill { font-size: 12px; padding: 4px 7px; }
+  .games { padding: 12px 16px 16px; }
+  .legend { padding: 12px 16px 16px; }
+  .rules { padding: 12px 16px 16px; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <div class="eyebrow" id="seasonLabel">NFL season</div>
+      <h1>Keg Bet</h1>
+      <p class="sub">Three teams each. Fewest combined wins buys the keg.</p>
+    </div>
+    <div class="controls">
+      <button class="primary" id="copyBtn" type="button">Copy group text</button>
+      <button id="refreshBtn" type="button">Refresh scores</button>
+      <div class="stamp" id="stamp">Loading scores…</div>
+    </div>
+  </header>
+
+  <div id="status"></div>
+  <section class="banner" id="banner" hidden></section>
+
+  <section class="panel" id="standingsPanel" hidden>
+    <h2 id="standingsTitle">Standings</h2>
+    <ol class="cards" id="cards"></ol>
+    <div class="gridLabel">Week by week</div>
+    <div class="scroller"><table id="grid"></table></div>
+    <div class="legend">
+      <span><i style="background:var(--bye)"></i>Had a team on bye</span>
+      <span><i style="background:var(--tie)"></i>Had a tie (counts as neither)</span>
+      <span><span class="pill safe" style="font-size:12px;padding:3px 7px">Safe</span>&nbsp; Can no longer finish last</span>
+      <span><b>Overall</b> = wins ahead of last place</span>
+    </div>
+  </section>
+
+  <section class="panel" id="weekPanel" hidden>
+    <h2 id="weekTitle">This week</h2>
+    <div id="games"></div>
+  </section>
+
+  <section class="panel" id="textPanel" hidden>
+    <h2>Group text</h2>
+    <div style="padding:12px 18px 18px"><textarea id="textOut" aria-label="Group text update" readonly></textarea></div>
+  </section>
+
+  <section class="panel">
+    <h2>How it works</h2>
+    <div class="rules">
+      <p>Each owner drafted 3 NFL teams. Only regular-season wins count. Ties count as neither a win nor a loss.</p>
+      <p>The owner with the fewest combined wins after Week 18 buys a keg for everyone else. If owners tie for last, they split it.</p>
+      <p id="sourceNote">Scores come straight from ESPN every time this page loads, so the standings are always current. To see another season, add <code>?season=2027</code> to the end of the address.</p>
+    </div>
+  </section>
+</div>
+
+<script>
+// ===== League setup: edit names or teams here (ESPN team abbreviations) =====
+const OWNERS = [
+  { name: "Marty",   teams: ["KC", "JAX", "MIN"] },
+  { name: "Oz",      teams: ["NYG", "CHI", "PIT"] },
+  { name: "Ryan",    teams: ["SF", "BAL", "ATL"] },
+  { name: "Tony",    teams: ["BUF", "DET", "LV"] },
+  { name: "Tom",     teams: ["NE", "DEN", "CAR"] },
+  { name: "Troy",    teams: ["LAR", "DAL", "CLE"] },
+  { name: "Billy",   teams: ["CIN", "HOU", "WSH"] },
+  { name: "Travis",  teams: ["SEA", "IND", "TEN"] },
+  { name: "Vickers", teams: ["PHI", "NO", "ARI"] },
+  { name: "Josh",    teams: ["GB", "LAC", "TB"] },
+];
+const WEEKS = 18;
+// ============================================================================
+
+// Saved scores for the shared link, where the page can't reach ESPN. build-share.ps1 fills this in.
+const SNAPSHOT = null;
+let useLogos = true;
+
+const SEASON = (() => {
+  const p = new URLSearchParams(location.search).get("season");
+  if (p && /^\d{4}$/.test(p)) return +p;
+  const d = new Date();
+  return d.getMonth() >= 2 ? d.getFullYear() : d.getFullYear() - 1;
+})();
+
+const teamInfo = {};
+const ownerOf = {};
+OWNERS.forEach((o, i) => o.teams.forEach(t => ownerOf[t] = i));
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const logo = ab => (teamInfo[ab] && teamInfo[ab].logo) || `https://a.espncdn.com/i/teamlogos/nfl/500/${ab.toLowerCase()}.png`;
+const logoImg = ab => useLogos ? `<img src="${esc(logo(ab))}" alt="" loading="lazy">` : "";
+
+async function fetchWeek(week) {
+  const url = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?seasontype=2&week=${week}&dates=${SEASON}`;
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) throw new Error(`ESPN returned ${res.status} for week ${week}`);
+  const data = await res.json();
+  return (data.events || []).map(e => {
+    const c = e.competitions[0];
+    const st = c.status.type;
+    const teams = c.competitors.map(x => {
+      const ab = x.team.abbreviation;
+      teamInfo[ab] = { logo: x.team.logo, name: x.team.shortDisplayName };
+      return { ab, score: Number(x.score) || 0, home: x.homeAway === "home", winner: !!x.winner };
+    }).sort((a, b) => a.home - b.home); // away first
+    const final = st.state === "post" && st.completed;
+    return {
+      week, date: new Date(e.date), state: st.state, final, detail: st.shortDetail,
+      tie: final && !teams.some(t => t.winner) && teams[0].score === teams[1].score,
+      teams,
+    };
+  });
+}
+
+// Standings counting only final games in weeks <= through.
+function standings(games, through) {
+  const rows = OWNERS.map(o => ({ name: o.name, teams: o.teams, w: 0, l: 0, t: 0, remaining: 0, weeks: {} }));
+  for (let wk = 1; wk <= WEEKS; wk++) rows.forEach(r => r.weeks[wk] = { w: 0, l: 0, t: 0, pending: 0, playing: new Set() });
+  for (const g of games) {
+    for (const side of g.teams) {
+      const i = ownerOf[side.ab];
+      if (i == null) continue;
+      const r = rows[i], wk = r.weeks[g.week];
+      wk.playing.add(side.ab);
+      if (!g.final || g.week > through) { r.remaining++; if (!g.final) wk.pending++; continue; }
+      if (g.tie) { wk.t++; r.t++; }
+      else if (side.winner) { wk.w++; r.w++; }
+      else { wk.l++; r.l++; }
+    }
+  }
+  const minW = Math.min(...rows.map(r => r.w));
+  const losers = rows.filter(r => r.w === minW);
+  rows.forEach(r => {
+    r.margin = r.w - minW;
+    r.last = r.w === minW;
+    r.sharing = r.last && losers.length > 1;
+    // Safe once someone else can't catch up even by winning out.
+    r.safe = rows.some(o => o !== r && o.w + o.remaining < r.w);
+  });
+  const sorted = [...rows].sort((a, b) => b.w - a.w || a.l - b.l || a.name.localeCompare(b.name));
+  sorted.forEach((r, i) => r.rank = i > 0 && sorted[i - 1].w === r.w ? sorted[i - 1].rank : i + 1);
+  return { rows: sorted, minW, losers };
+}
+
+function statusPill(r, prevRow) {
+  if (r.last) {
+    const still = prevRow && prevRow.last;
+    if (r.sharing) return `<span class="pill keg">${still ? "Still sharing a keg" : "Sharing a keg"}</span>`;
+    return `<span class="pill keg">${still ? "Still buying a keg" : "Buying a keg"}</span>`;
+  }
+  if (r.safe) return `<span class="pill safe">+${r.margin} · Safe</span>`;
+  return `<span class="pill">+${r.margin}</span>`;
+}
+function plainStatus(r) {
+  if (r.last) return r.sharing ? "sharing a keg" : "buying a keg";
+  return `+${r.margin}` + (r.safe ? ", safe" : "");
+}
+
+let lastText = "";
+
+function render(games) {
+  const started = games.filter(g => g.state !== "pre");
+  const latest = started.length ? Math.max(...started.map(g => g.week)) : 0;
+  $("seasonLabel").textContent = `${SEASON} NFL season`;
+
+  if (!latest) {
+    $("status").innerHTML = `<div class="msg">No ${SEASON} regular-season games have kicked off yet. Standings will appear after Week 1 starts.</div>`;
+    renderWeek(games, 1);
+    return;
+  }
+
+  const now = standings(games, WEEKS);
+  const prev = latest > 1 ? standings(games, latest - 1) : null;
+  const prevBy = {}; if (prev) prev.rows.forEach(r => prevBy[r.name] = r);
+  const weekDone = games.filter(g => g.week === latest).every(g => g.final);
+  const seasonOver = latest === WEEKS && weekDone;
+  const throughLabel = weekDone ? `Through Week ${latest}` : `Week ${latest} in progress`;
+  $("standingsTitle").textContent = `Standings · ${throughLabel}`;
+
+  // Banner
+  const loserNames = now.losers.map(r => r.name).join(" & ");
+  const leader = now.rows[0];
+  const leaders = now.rows.filter(r => r.w === leader.w).map(r => r.name).join(" & ");
+  const safeCount = now.rows.filter(r => r.safe).length;
+  $("banner").hidden = false;
+  $("banner").innerHTML = `
+    <div class="hook"><div class="label">${seasonOver ? "Buying the keg" : "On the hook right now"}</div>
+      <div class="big">${esc(loserNames)}</div>
+      <div class="note">${now.minW} wins${now.losers.length > 1 ? " each, splitting it" : ""}</div></div>
+    <div><div class="label">Most wins</div><div class="big">${esc(leaders)}</div>
+      <div class="note">${leader.w}–${leader.l}${leader.t ? "–" + leader.t : ""}, ${leader.margin} clear of last place</div></div>
+    <div><div class="label">Safe from the keg</div><div class="big">${safeCount} of ${OWNERS.length}</div>
+      <div class="note">${safeCount ? "Can’t finish last even if they lose out" : "Nobody has clinched yet"}</div></div>`;
+
+  // Grid
+  let head1 = `<tr><th class="owner" rowspan="2">Owner</th>`;
+  let head2 = `<tr>`;
+  for (let wk = 1; wk <= latest; wk++) { head1 += `<th class="wk" colspan="2">Wk ${wk}</th>`; head2 += `<th>W</th><th>L</th>`; }
+  head1 += `<th rowspan="2">Record</th><th rowspan="2">Overall</th><th rowspan="2">Last week</th></tr>`;
+  head2 += `</tr>`;
+  let body = "";
+  for (const r of now.rows) {
+    const p = prevBy[r.name];
+    let mv = "";
+    if (p && p.rank !== r.rank) mv = p.rank > r.rank ? `<span class="mv up">▲${p.rank - r.rank}</span>` : `<span class="mv down">▼${r.rank - p.rank}</span>`;
+    body += `<tr class="${r.last ? "hook" : ""}"><td class="owner"><span class="rk">${r.rank}</span><span class="nm">${esc(r.name)}</span>${mv}
+      <div class="teams">${r.teams.map(t => `<span>${logoImg(t)}${t}</span>`).join("")}</div></td>`;
+    for (let wk = 1; wk <= latest; wk++) {
+      const w = r.weeks[wk];
+      const cls = [w.t ? "tie" : w.playing.size < r.teams.length ? "bye" : "", w.pending ? "pending" : ""].join(" ");
+      const title = [w.playing.size < r.teams.length ? `Bye: ${r.teams.filter(t => !w.playing.has(t)).join(", ")}` : "", w.t ? `${w.t} tie` : "", w.pending ? `${w.pending} not final` : ""].filter(Boolean).join(" · ");
+      body += `<td class="w ${cls}" title="${title}">${w.w}</td><td class="l ${cls}" title="${title}">${w.l}</td>`;
+    }
+    body += `<td class="rec">${r.w}<small>–${r.l}${r.t ? "–" + r.t : ""}</small></td>`;
+    body += `<td class="mg">${statusPill(r, p)}</td>`;
+    body += `<td class="lw">${p ? (p.last ? `<span class="pill">${p.sharing ? "Sharing a keg" : "Buying a keg"}</span>` : `+${p.margin}`) : "—"}</td></tr>`;
+  }
+  $("grid").innerHTML = `<thead>${head1}${head2}</thead><tbody>${body}</tbody>`;
+
+  // Phone cards: same standings, one owner per row
+  $("cards").innerHTML = now.rows.map(r => {
+    const p = prevBy[r.name], w = r.weeks[latest];
+    const meta = [`Wk ${latest}${w.pending ? " so far" : ""}: ${w.w}–${w.l}`];
+    if (p) meta.push(`last wk ${p.last ? "last" : "+" + p.margin}`);
+    if (p && p.rank !== r.rank) meta.push(p.rank > r.rank ? `▲${p.rank - r.rank}` : `▼${r.rank - p.rank}`);
+    return `<li class="card ${r.last ? "hook" : ""}"><span class="rk">${r.rank}</span>
+      <div><span class="nm">${esc(r.name)}</span><span class="tm">${r.teams.join(" · ")}</span></div>
+      <span class="rec">${r.w}<small>–${r.l}${r.t ? "–" + r.t : ""}</small></span>
+      <span class="meta">${meta.join(" · ")}</span><span class="st">${statusPill(r, p)}</span></li>`;
+  }).join("");
+  $("standingsPanel").hidden = false;
+
+  // Group text
+  const lines = [`🍺 KEG BET ${SEASON} — ${throughLabel}`, ""];
+  now.rows.forEach(r => {
+    const p = prevBy[r.name];
+    const mvTxt = p && p.rank !== r.rank ? (p.rank > r.rank ? ` ↑${p.rank - r.rank}` : ` ↓${r.rank - p.rank}`) : "";
+    lines.push(`${r.rank}. ${r.name} ${r.w}-${r.l}${r.t ? "-" + r.t : ""} (${plainStatus(r)})${mvTxt}`);
+  });
+  lines.push("", `${seasonOver ? "Buying the keg" : "On the hook"}: ${loserNames} (${now.minW} wins)`);
+  if (prev) {
+    const wkLines = now.rows.map(r => { const w = r.weeks[latest]; return { n: r.name, w: w.w }; }).sort((a, b) => b.w - a.w);
+    const best = wkLines.filter(x => x.w === wkLines[0].w).map(x => x.n);
+    lines.push(`Best Week ${latest}: ${best.join(", ")} (${wkLines[0].w} wins)`);
+  }
+  lastText = lines.join("\n");
+  $("textOut").value = lastText;
+  $("textPanel").hidden = false;
+
+  renderWeek(games, weekDone && latest < WEEKS ? latest + 1 : latest);
+}
+
+function renderWeek(games, week) {
+  const list = games.filter(g => g.week === week).sort((a, b) => a.date - b.date);
+  $("weekTitle").textContent = `Week ${week} games`;
+  $("weekPanel").hidden = false;
+  if (!list.length) { $("games").innerHTML = `<div class="empty">No games found for Week ${week}.</div>`; return; }
+  $("games").innerHTML = `<div class="games">${list.map(g => {
+    const when = g.state === "pre"
+      ? g.date.toLocaleString([], { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })
+      : g.detail;
+    return `<div class="game"><div class="when ${g.state === "in" ? "live" : ""}">${esc(when)}</div>
+      ${g.teams.map(t => {
+        const owner = ownerOf[t.ab] != null ? OWNERS[ownerOf[t.ab]].name : "Undrafted";
+        const cls = g.final && !g.tie ? (t.winner ? "won" : "lost") : "";
+        return `<div class="side ${cls}">${logoImg(t.ab)}<span class="ab">${t.ab}</span><span class="who">${esc(owner)}</span>${g.state === "pre" ? "" : `<span class="sc">${t.score}</span>`}</div>`;
+      }).join("")}</div>`;
+  }).join("")}</div>`;
+}
+
+let refreshTimer;
+async function load() {
+  $("stamp").textContent = "Loading scores…";
+  try {
+    const weeks = await Promise.all(Array.from({ length: WEEKS }, (_, i) => fetchWeek(i + 1)));
+    const games = weeks.flat();
+    $("status").innerHTML = "";
+    render(games);
+    $("stamp").textContent = `Scores from ESPN · updated ${new Date().toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit" })}`;
+    clearTimeout(refreshTimer);
+    if (games.some(g => g.state === "in")) refreshTimer = setTimeout(load, 2 * 60 * 1000); // keep live games fresh
+  } catch (err) {
+    if (SNAPSHOT) {
+      useLogos = false;
+      $("status").innerHTML = "";
+      render(SNAPSHOT.games.map(g => ({ ...g, date: new Date(g.date) })));
+      const asOf = new Date(SNAPSHOT.fetchedAt).toLocaleString([], { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+      $("stamp").textContent = `Scores from ESPN as of ${asOf}`;
+      $("refreshBtn").hidden = true;
+      $("sourceNote").textContent = "This shared page is refreshed with the latest ESPN scores every Tuesday morning, after Monday Night Football.";
+      return;
+    }
+    $("status").innerHTML = `<div class="msg err">Couldn’t load scores from ESPN (${esc(err.message)}). Check the internet connection and press Refresh scores.</div>`;
+    $("stamp").textContent = "Scores not loaded";
+  }
+}
+
+let toastTimer;
+function toast(msg) {
+  let t = document.querySelector(".toast");
+  if (!t) { t = document.createElement("div"); t.className = "toast"; document.body.appendChild(t); }
+  t.textContent = msg;
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.remove(), 2200);
+}
+$("refreshBtn").addEventListener("click", load);
+$("copyBtn").addEventListener("click", async () => {
+  if (!lastText) return toast("Scores haven’t loaded yet");
+  try { await navigator.clipboard.writeText(lastText); toast("Copied. Paste it into the group text."); }
+  catch { $("textOut").focus(); $("textOut").select(); toast("Text selected. Press Ctrl+C to copy."); }
+});
+load();
+</script>
+</body>
+</html>
